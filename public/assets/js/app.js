@@ -263,7 +263,7 @@ class TravelPrintApp {
       alert('Añade al menos 2 destinos para crear tu estampita');
       return;
     }
-
+  
     try {
       // Asegurarnos de tener acceso al token de Mapbox
       const mapboxToken = this.mapHandler.mapboxToken;
@@ -286,16 +286,28 @@ class TravelPrintApp {
       // Determinar zoom basado en la distancia (simplificado)
       let zoom = 5;
       
-      // Alternativa: usar formato de ruta explícito en lugar de GeoJSON
-      const pathCoordinates = coordinates.map(coord => coord.join(',')).join(';');
+      // Color para la ruta (sin el #)
       const color = this.state.lineColor.replace('#', '');
       const styleId = this.state.mapStyle.split('/').pop();
+      
+      // Crear una ruta curva y discontinua
+      // El formato "+dashed+15" añade curva y hace la línea discontinua
+      const pathParam = `path-4+${color}-0.9+dashed+15(${coordinates.map(coord => coord.join(',')).join(';')})`;
+      
+      // Crear marcadores para cada destino
+      // pin-s-{letra} crea un marcador estándar con una letra dentro
+      const markers = coordinates.map((coord, index) => {
+        // Limitar a primeras 26 letras (a-z) para los marcadores
+        const label = String.fromCharCode(97 + (index % 26));
+        return `pin-s-${label}+${color}(${coord.join(',')})`;
+      }).join(',');
       
       // Construir URL con formato de ruta explícito y ajustado a las dimensiones de la plantilla
       const mapWidth = template.width;
       const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
       
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-5+${color}-1(${pathCoordinates})/${center.join(',')},${zoom}/${mapWidth}x${mapHeight}@2x?access_token=${this.mapHandler.mapboxToken}`;
+      // Combinamos el path curvo y los marcadores en la URL
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/${markers},${pathParam}/${center.join(',')},${zoom}/${mapWidth}x${mapHeight}@2x?access_token=${this.mapHandler.mapboxToken}`;
       
       console.log("URL de la imagen estática:", staticMapUrl);
       

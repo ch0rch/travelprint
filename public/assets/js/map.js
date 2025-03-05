@@ -181,14 +181,83 @@ class MapHandler {
     
     const coordinates = this.destinations.map(dest => dest.coordinates);
     
-    // Actualizar la fuente de datos
+    // Para el mapa interactivo, necesitamos crear una ruta con puntos adicionales para simular curvas
+    const curvedCoordinates = [];
+    
+    if (coordinates.length >= 2) {
+      // Añadir el primer punto
+      curvedCoordinates.push(coordinates[0]);
+      
+      // Para cada par de puntos consecutivos, añadir un punto intermedio curvado
+      for (let i = 0; i < coordinates.length - 1; i++) {
+        const start = coordinates[i];
+        const end = coordinates[i + 1];
+        
+        // Crear un punto intermedio ligeramente desplazado del centro directo
+        const midX = (start[0] + end[0]) / 2;
+        const midY = (start[1] + end[1]) / 2;
+        
+        // Calcular un desplazamiento perpendicular para crear la curva
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        
+        // Factor de curvatura - ajustar según necesidad
+        const curveFactor = 0.2;
+        
+        // Punto perpendicular (rotación de 90 grados)
+        const perpX = midX - dy * curveFactor;
+        const perpY = midY + dx * curveFactor;
+        
+        // Añadir punto intermedio y punto final
+        curvedCoordinates.push([perpX, perpY]);
+        curvedCoordinates.push(end);
+      }
+    } else {
+      // Si solo hay un punto, usarlo directamente
+      curvedCoordinates.push(...coordinates);
+    }
+    
+    // Actualizar la fuente de datos con la ruta curvada
     this.routeSource.setData({
       type: 'Feature',
       properties: {},
       geometry: {
         type: 'LineString',
-        coordinates: coordinates
+        coordinates: curvedCoordinates
       }
+    });
+    
+    // Añadir marcadores para cada destino
+    // Primero, eliminar marcadores existentes
+    this.destinations.forEach((dest, index) => {
+      const markerId = `marker-${index}`;
+      const existingMarker = document.getElementById(markerId);
+      if (existingMarker) existingMarker.remove();
+    });
+    
+    // Luego, añadir nuevos marcadores
+    this.destinations.forEach((dest, index) => {
+      // Crear un elemento para el marcador
+      const el = document.createElement('div');
+      el.id = `marker-${index}`;
+      el.className = 'mapboxgl-marker';
+      el.style.width = '30px';
+      el.style.height = '30px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = this.lineColor;
+      el.style.border = '2px solid white';
+      el.style.display = 'flex';
+      el.style.justifyContent = 'center';
+      el.style.alignItems = 'center';
+      el.style.color = 'white';
+      el.style.fontWeight = 'bold';
+      el.style.fontSize = '14px';
+      el.innerHTML = String.fromCharCode(65 + (index % 26)); // Letras en mayúscula (A, B, C...)
+      
+      // Añadir el marcador al mapa
+      new mapboxgl.Marker(el)
+        .setLngLat(dest.coordinates)
+        .addTo(this.map);
     });
     
     // Ajustar el mapa para mostrar toda la ruta
@@ -208,9 +277,5 @@ class MapHandler {
         duration: 1000
       });
     }
-  }
-
-  getDestinationsString() {
-    return this.destinations.map(d => d.name).join(' → ');
   }
 }
