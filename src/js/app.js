@@ -1,6 +1,3 @@
-import MapHandler from '../js/map.js';
-import PaymentHandler from '../js/payment.js';
-
 class TravelPrintApp {
   constructor() {
     // Inicializar estado de la aplicación
@@ -25,65 +22,14 @@ class TravelPrintApp {
   }
 
   init() {
-    mapboxgl.accessToken = this.mapboxToken;
+    // Inicializar mapa
+    this.mapHandler.init();
     
-    this.map = new mapboxgl.Map({
-      container: this.mapContainer,
-      style: this.style,
-      center: [-70.6693, -33.4489], // Santiago, Chile por defecto
-      zoom: 5,
-      attributionControl: false
-    });
-  
-    this.map.on('load', () => {
-      console.log('Mapa cargado correctamente');
-      // Añadir una fuente de datos para la ruta
-      this.map.addSource('route', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: []
-          }
-        }
-      });
-      
-      // Añadir una capa para la línea de la ruta
-      this.map.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': this.lineColor,
-          'line-width': 4
-        }
-      });
-  
-      // Añadir una capa para los puntos de destino
-      this.map.addLayer({
-        id: 'points',
-        type: 'circle',
-        source: 'route',
-        paint: {
-          'circle-radius': 6,
-          'circle-color': this.lineColor
-        },
-        filter: ['in', '$type', 'Point']
-      });
-  
-      this.routeSource = this.map.getSource('route');
-      
-      // Si hay destinos iniciales, actualizamos la ruta
-      if (this.destinations.length > 0) {
-        this.updateRoute();
-      }
-    });
+    // Configurar event listeners
+    this.setupEventListeners();
+    
+    // Actualizar UI con estado inicial
+    this.updateUI();
   }
 
   setupEventListeners() {
@@ -217,7 +163,7 @@ class TravelPrintApp {
   
     try {
       // Esperar a que el mapa esté completamente cargado
-      if (!this.mapHandler.map.loaded()) {
+      if (this.mapHandler.map && !this.mapHandler.map.loaded()) {
         await new Promise(resolve => {
           this.mapHandler.map.once('idle', resolve);
         });
@@ -318,7 +264,7 @@ class TravelPrintApp {
         
         // Actualizar destinos
         if (parsed.destinations && Array.isArray(parsed.destinations)) {
-          this.mapHandler.destinations = parsed.destinations;
+          this.state.destinations = parsed.destinations;
         }
       } catch (error) {
         console.error('Error al cargar datos guardados:', error);
@@ -329,6 +275,7 @@ class TravelPrintApp {
 
 // Inicializar la aplicación cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM cargado, inicializando aplicación');
   const app = new TravelPrintApp();
   app.init();
 });
