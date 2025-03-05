@@ -325,7 +325,7 @@ class TravelPrintApp {
         <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:${mapHeight}px; object-fit:cover;">
         <div class="p-4 bg-white" style="height:${textHeight}px;">
           <h3 class="text-xl font-bold text-center ${template.fontClass}">${this.state.title}</h3>
-          <p class="text-gray-600 text-center ${template.fontClass}">${this.mapHandler.getDestinationsString()}</p>
+          <p class="text-gray-600 text-center ${template.fontClass}">${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
         </div>
         <div class="absolute bottom-2 right-2 text-xs text-gray-500 opacity-${isPremium ? '0' : '80'}">
           ${isPremium ? '' : 'TravelPrint.me - Versión gratuita'}
