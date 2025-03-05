@@ -1,10 +1,65 @@
 class TravelPrintApp {
   constructor() {
+    // Definir plantillas disponibles
+    this.templates = {
+      classic: {
+        name: 'Clásico',
+        ratio: 4/3,
+        width: 800,
+        height: 600,
+        mapHeight: '70%',
+        titlePosition: 'bottom',
+        borderStyle: 'border-8 border-indigo-100 rounded-lg',
+        fontClass: 'font-serif'
+      },
+      square: {
+        name: 'Cuadrado',
+        ratio: 1/1,
+        width: 800,
+        height: 800,
+        mapHeight: '80%',
+        titlePosition: 'bottom',
+        borderStyle: 'border-8 border-indigo-100 rounded-lg',
+        fontClass: 'font-sans'
+      },
+      vertical: {
+        name: 'Vertical',
+        ratio: 4/5,
+        width: 600,
+        height: 750,
+        mapHeight: '65%',
+        titlePosition: 'bottom',
+        borderStyle: 'border-8 border-indigo-100 rounded-lg',
+        fontClass: 'font-sans'
+      },
+      story: {
+        name: 'Historia',
+        ratio: 9/16,
+        width: 540,
+        height: 960,
+        mapHeight: '60%',
+        titlePosition: 'bottom',
+        borderStyle: 'border-8 border-indigo-100 rounded-lg',
+        fontClass: 'font-sans'
+      },
+      wide: {
+        name: 'Panorámico',
+        ratio: 16/9,
+        width: 960,
+        height: 540,
+        mapHeight: '75%',
+        titlePosition: 'bottom',
+        borderStyle: 'border-8 border-indigo-100 rounded-lg',
+        fontClass: 'font-sans'
+      }
+    };
+
     // Inicializar estado de la aplicación
     this.state = {
       title: 'Mi viaje por Chile',
       lineColor: '#4F46E5',
-      mapStyle: 'mapbox://styles/mapbox/streets-v12'
+      mapStyle: 'mapbox://styles/mapbox/streets-v12',
+      templateStyle: 'classic'
     };
   
     // Cargar datos guardados si existen
@@ -55,6 +110,11 @@ class TravelPrintApp {
     // Listener para cambio de título
     document.getElementById('stampTitle').addEventListener('input', (e) => {
       this.updateTitle(e.target.value);
+    });
+
+    // Listener para cambio de plantilla
+    document.getElementById('templateStyle').addEventListener('change', (e) => {
+      this.updateTemplateStyle(e.target.value);
     });
 
     // Listeners para botones de descarga
@@ -111,6 +171,33 @@ class TravelPrintApp {
     this.saveState();
   }
 
+  updateTemplateStyle(templateStyle) {
+    this.state.templateStyle = templateStyle;
+    this.updatePreviewStyle();
+    this.saveState();
+  }
+
+  updatePreviewStyle() {
+    const preview = document.getElementById('stampPreview');
+    const template = this.templates[this.state.templateStyle];
+    
+    // Actualizar tamaño y estilo del contenedor de previsualización
+    preview.className = `relative ${template.borderStyle} overflow-hidden`;
+    
+    // Ajustar la altura del mapa en proporción
+    const mapDiv = document.getElementById('map');
+    mapDiv.style.height = template.mapHeight;
+    
+    // Ajustar estilos de fuente
+    const title = document.getElementById('previewTitle');
+    title.className = `text-xl font-bold text-center ${template.fontClass}`;
+    
+    // Forzar actualización del mapa si es necesario
+    if (this.mapHandler.map) {
+      this.mapHandler.map.resize();
+    }
+  }
+
   updateDestinationsList() {
     const listEl = document.getElementById('destinationsList');
     listEl.innerHTML = '';
@@ -147,11 +234,13 @@ class TravelPrintApp {
     document.getElementById('mapStyle').value = this.state.mapStyle;
     document.getElementById('lineColor').value = this.state.lineColor;
     document.getElementById('stampTitle').value = this.state.title;
+    document.getElementById('templateStyle').value = this.state.templateStyle;
     
     // Actualizar previsualización
     document.getElementById('previewTitle').textContent = this.state.title;
     this.updateDestinationsList();
     this.updatePreviewDestinations();
+    this.updatePreviewStyle();
   }
 
   async downloadStamp(isPremium = false) {
@@ -162,6 +251,9 @@ class TravelPrintApp {
     }
   
     try {
+      // Obtener configuración de la plantilla seleccionada
+      const template = this.templates[this.state.templateStyle];
+      
       // Obtener coordenadas para la imagen estática
       const coordinates = this.mapHandler.destinations.map(dest => dest.coordinates);
       
@@ -175,26 +267,31 @@ class TravelPrintApp {
       // Alternativa: usar formato de ruta explícito en lugar de GeoJSON
       const pathCoordinates = coordinates.map(coord => coord.join(',')).join(';');
       const color = this.state.lineColor.replace('#', '');
-      const width = 800;
-      const height = 500;
       const styleId = this.state.mapStyle.split('/').pop();
       
-      // Construir URL con formato de ruta explícito
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-5+${color}-1(${pathCoordinates})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
+      // Construir URL con formato de ruta explícito y ajustado a las dimensiones de la plantilla
+      const mapWidth = template.width;
+      const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
+      
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-5+${color}-1(${pathCoordinates})/${center.join(',')},${zoom}/${mapWidth}x${mapHeight}@2x?access_token=${this.mapHandler.mapboxToken}`;
       
       console.log("URL de la imagen estática:", staticMapUrl);
       
       // Crear un div temporal para la estampita
       const tempDiv = document.createElement('div');
-      tempDiv.className = 'relative border-8 border-indigo-100 rounded-lg overflow-hidden';
-      tempDiv.style.width = '400px';
+      tempDiv.className = `relative ${template.borderStyle} overflow-hidden`;
+      tempDiv.style.width = `${template.width}px`;
+      tempDiv.style.height = `${template.height}px`;
+      
+      // Altura del contenido de texto
+      const textHeight = template.height - mapHeight;
       
       // Crear estructura de la estampita con la imagen estática
       tempDiv.innerHTML = `
-        <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:auto;">
-        <div class="p-4 bg-white">
-          <h3 class="text-xl font-bold text-center">${this.state.title}</h3>
-          <p class="text-gray-600 text-center">${this.mapHandler.getDestinationsString()}</p>
+        <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:${mapHeight}px; object-fit:cover;">
+        <div class="p-4 bg-white" style="height:${textHeight}px;">
+          <h3 class="text-xl font-bold text-center ${template.fontClass}">${this.state.title}</h3>
+          <p class="text-gray-600 text-center ${template.fontClass}">${this.mapHandler.getDestinationsString()}</p>
         </div>
         <div class="absolute bottom-2 right-2 text-xs text-gray-500 opacity-${isPremium ? '0' : '80'}">
           ${isPremium ? '' : 'TravelPrint.me - Versión gratuita'}
@@ -240,7 +337,8 @@ class TravelPrintApp {
       // Preparar datos para el pago
       const customData = {
         title: this.state.title,
-        destinations: this.mapHandler.destinations.map(d => d.name).join(',')
+        destinations: this.mapHandler.destinations.map(d => d.name).join(','),
+        templateStyle: this.state.templateStyle
       };
       
       // Configurar eventos de LemonSqueezy antes de iniciar el checkout
@@ -274,6 +372,7 @@ class TravelPrintApp {
       title: this.state.title,
       lineColor: this.state.lineColor,
       mapStyle: this.state.mapStyle,
+      templateStyle: this.state.templateStyle,
       destinations: this.mapHandler.destinations
     };
     
@@ -291,6 +390,7 @@ class TravelPrintApp {
         this.state.title = parsed.title || this.state.title;
         this.state.lineColor = parsed.lineColor || this.state.lineColor;
         this.state.mapStyle = parsed.mapStyle || this.state.mapStyle;
+        this.state.templateStyle = parsed.templateStyle || this.state.templateStyle;
         
         // Actualizar destinos
         if (parsed.destinations && Array.isArray(parsed.destinations)) {
