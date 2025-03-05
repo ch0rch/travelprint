@@ -127,14 +127,14 @@ class TravelPrintApp {
     });
 
     // Añadir listener para redimensionamiento de ventana
-  window.addEventListener('resize', () => {
-    if (this.mapHandler && this.mapHandler.map) {
-      // Forzar actualización del mapa
-      setTimeout(() => {
-        this.updatePreviewStyle();
-      }, 100);
-    }
-  });
+    window.addEventListener('resize', () => {
+      if (this.mapHandler && this.mapHandler.map) {
+        // Forzar actualización del mapa
+        setTimeout(() => {
+          this.updatePreviewStyle();
+        }, 100);
+      }
+    });
   }
 
   async addDestination() {
@@ -272,8 +272,7 @@ class TravelPrintApp {
         alert('Error: No se pudo acceder al token de Mapbox');
         return;
       }
-  
-    try {
+      
       // Obtener configuración de la plantilla seleccionada
       const template = this.templates[this.state.templateStyle];
       
