@@ -172,30 +172,15 @@ class TravelPrintApp {
       // Determinar zoom basado en la distancia (simplificado)
       let zoom = 5;
       
-      // Crear objeto GeoJSON para la ruta
-      const geoJson = {
-        type: 'Feature',
-        properties: {
-          stroke: this.state.lineColor.replace('#', ''),
-          'stroke-width': 5,
-          'stroke-opacity': 1
-        },
-        geometry: {
-          type: 'LineString',
-          coordinates: coordinates
-        }
-      };
-  
-      // Codificar el GeoJSON para incluirlo en la URL
-      const encodedGeoJson = encodeURIComponent(JSON.stringify(geoJson));
-      
-      // Construir URL de imagen estática usando GeoJSON
+      // Alternativa: usar formato de ruta explícito en lugar de GeoJSON
+      const pathCoordinates = coordinates.map(coord => coord.join(',')).join(';');
+      const color = this.state.lineColor.replace('#', '');
       const width = 800;
       const height = 500;
       const styleId = this.state.mapStyle.split('/').pop();
       
-      // Usar el token de Mapbox correcto del mapHandler
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/geojson(${encodedGeoJson})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
+      // Construir URL con formato de ruta explícito
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-5+${color}-1(${pathCoordinates})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
       
       console.log("URL de la imagen estática:", staticMapUrl);
       
