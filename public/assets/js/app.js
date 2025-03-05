@@ -290,26 +290,11 @@ class TravelPrintApp {
       const color = this.state.lineColor.replace('#', '');
       const styleId = this.state.mapStyle.split('/').pop();
       
-      // Crear una ruta curva y discontinua
-      // El formato "+dashed+15" añade curva y hace la línea discontinua
-      const pathParam = `path-4+${color}-0.9+dashed+15(${coordinates.map(coord => coord.join(',')).join(';')})`;
+      // Construir URL con formato simplificado - solo mostramos la ruta, no los marcadores individuales
+      // Esto reduce significativamente la longitud de la URL
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-4+${color}-0.9+dashed(${coordinates.map(coord => coord.join(',')).join(';')})/${center.join(',')},${zoom}/${template.width}x${Math.round(template.height * parseFloat(template.mapHeight) / 100)}@2x?access_token=${mapboxToken}`;
       
-      // Crear marcadores para cada destino
-      // pin-s-{letra} crea un marcador estándar con una letra dentro
-      const markers = coordinates.map((coord, index) => {
-        // Limitar a primeras 26 letras (a-z) para los marcadores
-        const label = String.fromCharCode(97 + (index % 26));
-        return `pin-s-${label}+${color}(${coord.join(',')})`;
-      }).join(',');
-      
-      // Construir URL con formato de ruta explícito y ajustado a las dimensiones de la plantilla
-      const mapWidth = template.width;
-      const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
-      
-      // Combinamos el path curvo y los marcadores en la URL
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/${markers},${pathParam}/${center.join(',')},${zoom}/${mapWidth}x${mapHeight}@2x?access_token=${this.mapHandler.mapboxToken}`;
-      
-      console.log("URL de la imagen estática:", staticMapUrl);
+      console.log("URL de la imagen estática (simplificada):", staticMapUrl);
       
       // Crear un div temporal para la estampita
       const tempDiv = document.createElement('div');
@@ -318,11 +303,11 @@ class TravelPrintApp {
       tempDiv.style.height = `${template.height}px`;
       
       // Altura del contenido de texto
-      const textHeight = template.height - mapHeight;
+      const textHeight = template.height - Math.round(template.height * parseFloat(template.mapHeight) / 100);
       
       // Crear estructura de la estampita con la imagen estática
       tempDiv.innerHTML = `
-        <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:${mapHeight}px; object-fit:cover;">
+        <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:${template.height - textHeight}px; object-fit:cover;">
         <div class="p-4 bg-white" style="height:${textHeight}px;">
           <h3 class="text-xl font-bold text-center ${template.fontClass}">${this.state.title}</h3>
           <p class="text-gray-600 text-center ${template.fontClass}">${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
@@ -334,6 +319,20 @@ class TravelPrintApp {
       
       // Agregar temporalmente al DOM para poder capturarlo
       document.body.appendChild(tempDiv);
+      
+      // Esperar a que la imagen cargue antes de capturarla
+      await new Promise((resolve) => {
+        const img = tempDiv.querySelector('img');
+        if (img.complete) {
+          resolve();
+        } else {
+          img.onload = resolve;
+          img.onerror = () => {
+            console.error('Error loading map image');
+            resolve(); // Resolver de todos modos para continuar
+          };
+        }
+      });
       
       // Capturar como imagen
       const canvas = await html2canvas(tempDiv, {
