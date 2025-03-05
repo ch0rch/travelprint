@@ -180,13 +180,15 @@ class TravelPrintApp {
       }
       
       // Crear línea de ruta para mostrar en la imagen estática
-      const path = coordinates.map(coord => coord.join(',')).join(';');
+      const path = encodeURIComponent(coordinates.map(coord => coord.join(',')).join(';'));
+      // Asegúrate de que el color esté en formato correcto para la URL (sin #)
       const color = this.state.lineColor.replace('#', '');
-      
-      // Construir URL de la imagen estática
+
+      // Construir URL de la imagen estática correctamente
       const width = 800;
       const height = 400;
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${this.state.mapStyle.split('/').pop()}/static/path-4+${color}(${path})/${center.join(',')},${zoom}/${width}x${height}?access_token=${this.mapHandler.mapboxToken}`;
+      const styleId = this.state.mapStyle.split('/').pop();
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-5+${color}-1(${path})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
       
       // Crear estructura de la estampita con la imagen estática
       tempDiv.innerHTML = `
