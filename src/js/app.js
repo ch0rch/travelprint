@@ -162,12 +162,19 @@ class TravelPrintApp {
     }
   
     try {
-      // Esperar a que el mapa esté completamente cargado
-      if (this.mapHandler.map && !this.mapHandler.map.loaded()) {
-        await new Promise(resolve => {
+      // Esperar explícitamente a que el mapa termine de renderizarse
+      await new Promise(resolve => {
+        if (this.mapHandler.map && this.mapHandler.map.loaded()) {
+          resolve();
+        } else if (this.mapHandler.map) {
           this.mapHandler.map.once('idle', resolve);
-        });
-      }
+        } else {
+          setTimeout(resolve, 1000); // Esperar 1 segundo si no hay mapa
+        }
+      });
+  
+      // Esperar un poco más para asegurar que todo se ha renderizado
+      await new Promise(resolve => setTimeout(resolve, 500));
   
       // Capturar el div de previsualización como imagen
       const stampElement = document.getElementById('stampPreview');
@@ -177,13 +184,14 @@ class TravelPrintApp {
       watermark.style.opacity = isPremium ? '0' : '1';
       watermark.textContent = isPremium ? '' : 'TravelPrint.me - Versión gratuita';
       
-      // Crear una promesa para html2canvas
+      // Configuración más robusta para html2canvas
       const canvas = await html2canvas(stampElement, {
-        scale: 2, // Mayor resolución
         useCORS: true,
         allowTaint: true,
+        scale: 2,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: true,
+        foreignObjectRendering: false // Intenta con true o false
       });
       
       // Restaurar marca de agua para la UI
