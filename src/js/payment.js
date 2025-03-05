@@ -1,21 +1,56 @@
 class PaymentHandler {
   constructor() {
-    // Para el MVP, usamos una redirección simple a LemonSqueezy
-    this.checkoutUrl = 'https://travelprint.lemonsqueezy.com/checkout/buy/12345'; // Reemplazar con tu URL de producto
+    this.productId = '462437'; // Tu ID de producto LemonSqueezy
+    this.lemonSqueezyScriptUrl = 'https://app.lemonsqueezy.com/js/lemon.js';
+    this.scriptLoaded = false;
+  }
+
+  async loadLemonSqueezyScript() {
+    if (this.scriptLoaded) return true;
+    
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = this.lemonSqueezyScriptUrl;
+      script.async = true;
+      
+      script.onload = () => {
+        this.scriptLoaded = true;
+        // Inicializar LemonSqueezy después de cargar el script
+        window.createLemonSqueezy();
+        resolve(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Error al cargar el script de LemonSqueezy');
+        resolve(false);
+      };
+      
+      document.body.appendChild(script);
+    });
   }
 
   async initiatePayment(customData = {}) {
     try {
-      // Construye una URL con parámetros de consulta para los datos personalizados
-      const url = new URL(this.checkoutUrl);
+      // Cargar el script si aún no está cargado
+      const scriptLoaded = await this.loadLemonSqueezyScript();
       
-      // Añade los datos personalizados como parámetros de consulta
-      Object.keys(customData).forEach(key => {
-        url.searchParams.append(key, customData[key]);
-      });
+      if (!scriptLoaded) {
+        console.error('No se pudo cargar el script de LemonSqueezy');
+        return false;
+      }
+
+      // Configurar los datos para el checkout
+      const checkoutOptions = {
+        checkout: {
+          product: this.productId,
+          // Datos personalizados para tu uso
+          custom: customData
+        }
+      };
       
-      // Abre la URL en una nueva pestaña
-      window.open(url.toString(), '_blank');
+      // Abrir el checkout overlay
+      window.LemonSqueezy.Checkout.open(checkoutOptions);
+      
       return true;
     } catch (error) {
       console.error('Error al iniciar el pago:', error);

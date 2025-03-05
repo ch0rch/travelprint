@@ -231,30 +231,35 @@ class TravelPrintApp {
 
   async downloadPremiumStamp() {
     try {
+      // Verificar si hay destinos
+      if (this.mapHandler.destinations.length < 2) {
+        alert('Añade al menos 2 destinos para crear tu estampita');
+        return;
+      }
+  
       // Preparar datos para el pago
       const customData = {
         title: this.state.title,
         destinations: this.mapHandler.destinations.map(d => d.name).join(',')
       };
       
-      // Iniciar proceso de pago
+      // Configurar eventos de LemonSqueezy antes de iniciar el checkout
+      if (typeof window.LemonSqueezy !== 'undefined') {
+        window.LemonSqueezy.Setup({
+          events: {
+            'Checkout.Success': (data) => {
+              console.log('Pago exitoso:', data);
+              // Descargar la versión premium
+              this.downloadStamp(true);
+            }
+          }
+        });
+      }
+      
+      // Iniciar proceso de pago con overlay
       const paymentInitiated = await this.paymentHandler.initiatePayment(customData);
       
-      if (paymentInitiated) {
-        // El proceso de pago aquí sería redirigir al usuario a LemonSqueezy
-        // Normalmente, se verificaría el pago mediante un webhook o callback
-        
-        // Para fines del MVP, asumimos éxito después de iniciar
-        // En una implementación real, se verificaría el pago antes de descargar
-        setTimeout(() => {
-          // Simular verificación de pago exitosa (solo para demo)
-          // En la implementación real, esto sería manejado por webhooks de LemonSqueezy
-          const shouldProceed = confirm('¿Completaste el pago? (Esto es solo para demostración, en la versión final será automático)');
-          if (shouldProceed) {
-            this.downloadStamp(true);
-          }
-        }, 500);
-      } else {
+      if (!paymentInitiated) {
         alert('No se pudo iniciar el proceso de pago. Inténtalo de nuevo.');
       }
     } catch (error) {
