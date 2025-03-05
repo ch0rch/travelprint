@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos personalizados adicionales */
+.mapboxgl-ctrl-logo {
+    display: none !important;
+}
