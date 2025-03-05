@@ -162,43 +162,59 @@ class TravelPrintApp {
     }
   
     try {
-      // Esperar explícitamente a que el mapa termine de renderizarse
-      await new Promise(resolve => {
-        if (this.mapHandler.map && this.mapHandler.map.loaded()) {
-          resolve();
-        } else if (this.mapHandler.map) {
-          this.mapHandler.map.once('idle', resolve);
-        } else {
-          setTimeout(resolve, 1000); // Esperar 1 segundo si no hay mapa
-        }
-      });
-  
-      // Esperar un poco más para asegurar que todo se ha renderizado
-      await new Promise(resolve => setTimeout(resolve, 500));
-  
-      // Capturar el div de previsualización como imagen
-      const stampElement = document.getElementById('stampPreview');
+      // Crear un div temporal para la estampita
+      const tempDiv = document.createElement('div');
+      tempDiv.className = 'relative border-8 border-indigo-100 rounded-lg overflow-hidden';
+      tempDiv.style.width = '400px';  // Ajustar según necesidades
       
-      // Mostrar/ocultar marca de agua según versión
-      const watermark = document.getElementById('watermark');
-      watermark.style.opacity = isPremium ? '0' : '1';
-      watermark.textContent = isPremium ? '' : 'TravelPrint.me - Versión gratuita';
+      // Obtener coordenadas y crear una ruta para la imagen estática de Mapbox
+      const coordinates = this.mapHandler.destinations.map(dest => dest.coordinates);
+      const center = coordinates.reduce((acc, coord) => [acc[0] + coord[0], acc[1] + coord[1]], [0, 0])
+        .map(sum => sum / coordinates.length);
+        
+      // Calcular zoom y bounds para la imagen estática
+      let zoom = 5;
+      if (coordinates.length > 1) {
+        // Lógica para determinar zoom basado en la distancia entre puntos
+        // Simplificación: usar un zoom fijo para el MVP
+      }
       
-      // Configuración más robusta para html2canvas
-      const canvas = await html2canvas(stampElement, {
+      // Crear línea de ruta para mostrar en la imagen estática
+      const path = coordinates.map(coord => coord.join(',')).join(';');
+      const color = this.state.lineColor.replace('#', '');
+      
+      // Construir URL de la imagen estática
+      const width = 800;
+      const height = 400;
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${this.state.mapStyle.split('/').pop()}/static/path-4+${color}(${path})/${center.join(',')},${zoom}/${width}x${height}?access_token=${this.mapHandler.mapboxToken}`;
+      
+      // Crear estructura de la estampita con la imagen estática
+      tempDiv.innerHTML = `
+        <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:auto;">
+        <div class="p-4 bg-white">
+          <h3 class="text-xl font-bold text-center">${this.state.title}</h3>
+          <p class="text-gray-600 text-center">${this.mapHandler.getDestinationsString()}</p>
+        </div>
+        <div class="absolute bottom-2 right-2 text-xs text-gray-500 opacity-80">
+          ${isPremium ? '' : 'TravelPrint.me - Versión gratuita'}
+        </div>
+      `;
+      
+      // Agregar temporalmente al DOM para poder capturarlo
+      document.body.appendChild(tempDiv);
+      
+      // Capturar como imagen
+      const canvas = await html2canvas(tempDiv, {
         useCORS: true,
         allowTaint: true,
         scale: 2,
-        backgroundColor: '#ffffff',
-        logging: true,
-        foreignObjectRendering: false // Intenta con true o false
+        backgroundColor: '#ffffff'
       });
       
-      // Restaurar marca de agua para la UI
-      watermark.style.opacity = '0.8';
-      watermark.textContent = 'TravelPrint.me';
+      // Eliminar del DOM
+      document.body.removeChild(tempDiv);
       
-      // Convertir a imagen y descargar
+      // Descargar imagen
       const imgData = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.href = imgData;
