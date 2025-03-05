@@ -154,7 +154,7 @@ class TravelPrintApp {
     this.updatePreviewDestinations();
   }
 
-  async downloadStamp(isPremium = false) {
+  downloadStamp(isPremium = false) {
     // Verificar si hay destinos
     if (this.mapHandler.destinations.length < 2) {
       alert('Añade al menos 2 destinos para crear tu estampita');
@@ -162,33 +162,44 @@ class TravelPrintApp {
     }
   
     try {
+      // Obtener coordenadas para la imagen estática
+      const coordinates = this.mapHandler.destinations.map(dest => dest.coordinates);
+      
+      // Calcular centro
+      const center = coordinates.reduce((acc, coord) => [acc[0] + coord[0], acc[1] + coord[1]], [0, 0])
+        .map(sum => sum / coordinates.length);
+      
+      // Determinar zoom basado en la distancia (simplificado)
+      let zoom = 5;
+      
+      // Crear objeto GeoJSON para la ruta
+      const geoJson = {
+        type: 'Feature',
+        properties: {
+          stroke: this.state.lineColor.replace('#', ''),
+          'stroke-width': 5,
+          'stroke-opacity': 1
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: coordinates
+        }
+      };
+  
+      // Codificar el GeoJSON para incluirlo en la URL
+      const encodedGeoJson = encodeURIComponent(JSON.stringify(geoJson));
+      
+      // Construir URL de imagen estática usando GeoJSON
+      const width = 800;
+      const height = 500;
+      const styleId = this.state.mapStyle.split('/').pop();
+      
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/geojson(${encodedGeoJson})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
+      
       // Crear un div temporal para la estampita
       const tempDiv = document.createElement('div');
       tempDiv.className = 'relative border-8 border-indigo-100 rounded-lg overflow-hidden';
-      tempDiv.style.width = '400px';  // Ajustar según necesidades
-      
-      // Obtener coordenadas y crear una ruta para la imagen estática de Mapbox
-      const coordinates = this.mapHandler.destinations.map(dest => dest.coordinates);
-      const center = coordinates.reduce((acc, coord) => [acc[0] + coord[0], acc[1] + coord[1]], [0, 0])
-        .map(sum => sum / coordinates.length);
-        
-      // Calcular zoom y bounds para la imagen estática
-      let zoom = 5;
-      if (coordinates.length > 1) {
-        // Lógica para determinar zoom basado en la distancia entre puntos
-        // Simplificación: usar un zoom fijo para el MVP
-      }
-      
-      // Crear línea de ruta para mostrar en la imagen estática
-      const path = encodeURIComponent(coordinates.map(coord => coord.join(',')).join(';'));
-      // Asegúrate de que el color esté en formato correcto para la URL (sin #)
-      const color = this.state.lineColor.replace('#', '');
-
-      // Construir URL de la imagen estática correctamente
-      const width = 800;
-      const height = 400;
-      const styleId = this.state.mapStyle.split('/').pop();
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-5+${color}-1(${path})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
+      tempDiv.style.width = '400px';
       
       // Crear estructura de la estampita con la imagen estática
       tempDiv.innerHTML = `
@@ -197,7 +208,7 @@ class TravelPrintApp {
           <h3 class="text-xl font-bold text-center">${this.state.title}</h3>
           <p class="text-gray-600 text-center">${this.mapHandler.getDestinationsString()}</p>
         </div>
-        <div class="absolute bottom-2 right-2 text-xs text-gray-500 opacity-80">
+        <div class="absolute bottom-2 right-2 text-xs text-gray-500 opacity-${isPremium ? '0' : '80'}">
           ${isPremium ? '' : 'TravelPrint.me - Versión gratuita'}
         </div>
       `;
