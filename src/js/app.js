@@ -290,11 +290,12 @@ class TravelPrintApp {
       const color = this.state.lineColor.replace('#', '');
       const styleId = this.state.mapStyle.split('/').pop();
       
-      // Construir URL con formato simplificado - solo mostramos la ruta, no los marcadores individuales
-      // Esto reduce significativamente la longitud de la URL
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-4+${color}-0.9+dashed(${coordinates.map(coord => coord.join(',')).join(';')})/${center.join(',')},${zoom}/${template.width}x${Math.round(template.height * parseFloat(template.mapHeight) / 100)}@2x?access_token=${mapboxToken}`;
+      // Usar una URL mucho más simple, solo con los puntos básicos
+      // Sin parámetros complejos como "dashed"
+      const coordsStr = coordinates.map(coord => coord.join(',')).join(';');
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-4+${color}(${coordsStr})/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
       
-      console.log("URL de la imagen estática (simplificada):", staticMapUrl);
+      console.log("URL de la imagen estática (muy simplificada):", staticMapUrl);
       
       // Crear un div temporal para la estampita
       const tempDiv = document.createElement('div');
@@ -303,11 +304,24 @@ class TravelPrintApp {
       tempDiv.style.height = `${template.height}px`;
       
       // Altura del contenido de texto
-      const textHeight = template.height - Math.round(template.height * parseFloat(template.mapHeight) / 100);
+      const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
+      const textHeight = template.height - mapHeight;
       
-      // Crear estructura de la estampita con la imagen estática
+      // Preparar un div de "fallback" por si falla la imagen
+      const fallbackMapDiv = `
+        <div style="width:100%; height:${mapHeight}px; background-color:#f0f0f0; display:flex; justify-content:center; align-items:center; text-align:center;">
+          <p>Mapa de ruta: ${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
+        </div>
+      `;
+      
+      // Crear estructura de la estampita, con manejo de error para la imagen
       tempDiv.innerHTML = `
-        <img src="${staticMapUrl}" alt="Mapa de ruta" style="width:100%; height:${template.height - textHeight}px; object-fit:cover;">
+        <img src="${staticMapUrl}" alt="Mapa de ruta" 
+             style="width:100%; height:${mapHeight}px; object-fit:cover;"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <div style="display:none; width:100%; height:${mapHeight}px; background-color:#f0f0f0; display:flex; justify-content:center; align-items:center; text-align:center;">
+          <p>Mapa de ruta: ${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
+        </div>
         <div class="p-4 bg-white" style="height:${textHeight}px;">
           <h3 class="text-xl font-bold text-center ${template.fontClass}">${this.state.title}</h3>
           <p class="text-gray-600 text-center ${template.fontClass}">${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
@@ -320,19 +334,8 @@ class TravelPrintApp {
       // Agregar temporalmente al DOM para poder capturarlo
       document.body.appendChild(tempDiv);
       
-      // Esperar a que la imagen cargue antes de capturarla
-      await new Promise((resolve) => {
-        const img = tempDiv.querySelector('img');
-        if (img.complete) {
-          resolve();
-        } else {
-          img.onload = resolve;
-          img.onerror = () => {
-            console.error('Error loading map image');
-            resolve(); // Resolver de todos modos para continuar
-          };
-        }
-      });
+      // Esperar un momento para asegurar que todo se renderice
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Capturar como imagen
       const canvas = await html2canvas(tempDiv, {
