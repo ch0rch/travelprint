@@ -125,6 +125,16 @@ class TravelPrintApp {
     document.getElementById('downloadPremiumBtn').addEventListener('click', () => {
       this.downloadPremiumStamp();
     });
+
+    // Añadir listener para redimensionamiento de ventana
+  window.addEventListener('resize', () => {
+    if (this.mapHandler && this.mapHandler.map) {
+      // Forzar actualización del mapa
+      setTimeout(() => {
+        this.updatePreviewStyle();
+      }, 100);
+    }
+  });
   }
 
   async addDestination() {
@@ -184,18 +194,22 @@ class TravelPrintApp {
     // Actualizar tamaño y estilo del contenedor de previsualización
     preview.className = `relative ${template.borderStyle} overflow-hidden`;
     
-    // Ajustar la altura del mapa en proporción
+    // Ajustar la altura del mapa en proporción - usar pixeles para mayor consistencia
     const mapDiv = document.getElementById('map');
-    mapDiv.style.height = template.mapHeight;
+    const previewWidth = preview.clientWidth;
+    const mapHeight = previewWidth * (template.height / template.width) * parseFloat(template.mapHeight) / 100;
+    mapDiv.style.height = `${mapHeight}px`;
     
     // Ajustar estilos de fuente
     const title = document.getElementById('previewTitle');
     title.className = `text-xl font-bold text-center ${template.fontClass}`;
     
     // Forzar actualización del mapa si es necesario
-    if (this.mapHandler.map) {
-      this.mapHandler.map.resize();
-    }
+    setTimeout(() => {
+      if (this.mapHandler.map) {
+        this.mapHandler.map.resize();
+      }
+    }, 100);
   }
 
   updateDestinationsList() {
@@ -249,6 +263,15 @@ class TravelPrintApp {
       alert('Añade al menos 2 destinos para crear tu estampita');
       return;
     }
+
+    try {
+      // Asegurarnos de tener acceso al token de Mapbox
+      const mapboxToken = this.mapHandler.mapboxToken;
+      if (!mapboxToken) {
+        console.error('No se pudo acceder al token de Mapbox');
+        alert('Error: No se pudo acceder al token de Mapbox');
+        return;
+      }
   
     try {
       // Obtener configuración de la plantilla seleccionada
