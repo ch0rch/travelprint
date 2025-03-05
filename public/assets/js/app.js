@@ -154,7 +154,7 @@ class TravelPrintApp {
     this.updatePreviewDestinations();
   }
 
-  downloadStamp(isPremium = false) {
+  async downloadStamp(isPremium = false) {
     // Verificar si hay destinos
     if (this.mapHandler.destinations.length < 2) {
       alert('Añade al menos 2 destinos para crear tu estampita');
@@ -194,7 +194,10 @@ class TravelPrintApp {
       const height = 500;
       const styleId = this.state.mapStyle.split('/').pop();
       
+      // Usar el token de Mapbox correcto del mapHandler
       const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/geojson(${encodedGeoJson})/${center.join(',')},${zoom}/${width}x${height}@2x?access_token=${this.mapHandler.mapboxToken}`;
+      
+      console.log("URL de la imagen estática:", staticMapUrl);
       
       // Crear un div temporal para la estampita
       const tempDiv = document.createElement('div');
