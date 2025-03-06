@@ -306,12 +306,14 @@ class TravelPrintApp {
       for (let i = 0; i < coordinates.length - 1; i++) {
         const from = coordinates[i];
         const to = coordinates[i + 1];
-        pathSegments.push(`path-3+${color}-0.9(${from.join(',')};${to.join(',')})`);
+        // Usar un ancho de línea mayor y un color más opaco para mayor visibilidad
+        pathSegments.push(`path-5+${color}-1(${from.join(',')};${to.join(',')})`);
       }
 
-      // Combinar todo en la URL (limitando el número de elementos para evitar URL demasiado larga)
-      const maxElements = 8; // Límite para evitar URL demasiado larga
-      const urlElements = [...markers, ...pathSegments.slice(0, maxElements - markers.length)];
+      // Combinar todo en la URL, poniendo los segmentos ANTES de los marcadores
+      // Esto puede ayudar con la visualización en algunos casos
+      const maxElements = 8; // Limitar elementos para evitar URL demasiado larga
+      const urlElements = [...pathSegments.slice(0, maxElements - markers.length), ...markers];
       const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/${urlElements.join(',')}/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
       
       console.log("URL de la imagen estática (segmentada):", staticMapUrl);
