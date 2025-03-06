@@ -290,10 +290,13 @@ class TravelPrintApp {
       const color = this.state.lineColor.replace('#', '');
       const styleId = this.state.mapStyle.split('/').pop();
       
-      // Usar una URL mucho más simple, solo con los puntos básicos
-      // Sin parámetros complejos como "dashed"
+      // Usar una URL con formato mejorado para asegurar que se muestre la ruta
+      const startPoint = coordinates[0].join(',');
+      const endPoint = coordinates[coordinates.length - 1].join(',');
       const coordsStr = coordinates.map(coord => coord.join(',')).join(';');
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/path-4+${color}(${coordsStr})/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
+
+      // Construir la URL con marcadores de inicio/fin y ruta
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/pin-s-a+${color}(${startPoint}),pin-s-b+${color}(${endPoint}),path-5+${color}-0.8(${coordsStr})/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
       
       console.log("URL de la imagen estática (muy simplificada):", staticMapUrl);
       
