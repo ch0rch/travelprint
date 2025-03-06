@@ -316,31 +316,23 @@ class TravelPrintApp {
       // Obtener configuración de la plantilla seleccionada
       const template = this.templates[this.state.templateStyle];
       
-      // Asegurarse de que el mapa esté correctamente renderizado antes de capturarlo
-      await this.ensureMapIsRendered();
-      
       // Altura del mapa y del contenido de texto
       const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
       const textHeight = template.height - mapHeight;
       
-      // 1. Primero capturamos el mapa interactivo existente
-      console.log('Capturando el mapa interactivo...');
-      const mapElement = document.getElementById('map');
+      // Preparar el mapa para la captura
+      await this.ensureMapIsRendered();
       
-      // Crear elemento de canvas para la captura
-      const mapCanvas = await html2canvas(mapElement, {
-        useCORS: true,
-        allowTaint: true,
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: true
-      });
+      // Capturar directamente el mapa usando la API de Mapbox
+      const map = this.mapHandler.map;
       
-      // Crear una URL de datos para la imagen del mapa
-      const mapImageUrl = mapCanvas.toDataURL('image/png');
-      console.log('Mapa capturado exitosamente');
+      // Esperar un momento adicional para asegurar que el mapa se ha renderizado completamente
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 2. Crear un div temporal para la estampita completa
+      // Usar getCanvas de Mapbox para obtener la imagen directamente
+      const mapImage = map.getCanvas().toDataURL();
+      
+      // Crear un div temporal para la estampita completa
       const tempDiv = document.createElement('div');
       tempDiv.className = `relative ${template.borderStyle} overflow-hidden`;
       tempDiv.style.width = `${template.width}px`;
@@ -348,7 +340,7 @@ class TravelPrintApp {
       
       // Crear estructura de la estampita con la imagen del mapa
       tempDiv.innerHTML = `
-        <img src="${mapImageUrl}" alt="Mapa de ruta" 
+        <img src="${mapImage}" alt="Mapa de ruta" 
              style="width:100%; height:${mapHeight}px; object-fit:cover;">
         <div class="p-4 bg-white" style="height:${textHeight}px;">
           <h3 class="text-xl font-bold text-center ${template.fontClass}">${this.state.title}</h3>
@@ -362,11 +354,10 @@ class TravelPrintApp {
       // Agregar temporalmente al DOM para poder capturarlo
       document.body.appendChild(tempDiv);
       
-      // 3. Esperar un momento para asegurar que todo se renderice
+      // Esperar un momento para asegurar que todo se renderice
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // 4. Capturar la estampita completa
-      console.log('Generando imagen final...');
+      // Capturar la estampita completa
       const canvas = await html2canvas(tempDiv, {
         useCORS: true,
         allowTaint: true,
@@ -385,7 +376,6 @@ class TravelPrintApp {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      console.log('Estampita generada y descargada correctamente');
     } catch (error) {
       console.error('Error al descargar la estampita:', error);
       alert('Hubo un error al generar la imagen. Inténtalo de nuevo.');
