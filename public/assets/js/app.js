@@ -257,6 +257,54 @@ class TravelPrintApp {
     this.updatePreviewStyle();
   }
 
+  // Asegurar que el mapa se renderiza completamente
+  async ensureMapIsRendered() {
+    // Asegurarse de que el mapa existe
+    if (!this.mapHandler.map) {
+      console.error('El mapa no está inicializado');
+      return;
+    }
+    
+    // Forzar un redimensionamiento para asegurar que el mapa se renderice completamente
+    this.mapHandler.map.resize();
+    
+    // Si las rutas no son visibles, intentar mejorar su visibilidad
+    try {
+      // Asegurarse de que las rutas son visibles
+      const lineColor = this.state.lineColor;
+      if (this.mapHandler.map.getLayer('route')) {
+        this.mapHandler.map.setPaintProperty('route', 'line-width', 5);
+        this.mapHandler.map.setPaintProperty('route', 'line-color', lineColor);
+      }
+      
+      // Ajustar el mapa para mostrar todos los puntos
+      if (this.mapHandler.destinations.length > 1) {
+        const coordinates = this.mapHandler.destinations.map(dest => dest.coordinates);
+        const bounds = coordinates.reduce((bounds, coord) => {
+          return bounds.extend(coord);
+        }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+        
+        this.mapHandler.map.fitBounds(bounds, {
+          padding: 50,
+          duration: 300
+        });
+      }
+    } catch (e) {
+      console.warn('Error al intentar ajustar la visualización del mapa:', e);
+    }
+    
+    // Esperar a que el mapa termine de renderizar
+    await new Promise(resolve => {
+      if (this.mapHandler.map.loaded()) {
+        setTimeout(resolve, 500); // Pequeña espera adicional
+      } else {
+        this.mapHandler.map.once('idle', () => {
+          setTimeout(resolve, 500);
+        });
+      }
+    });
+  }
+
   async downloadStamp(isPremium = false) {
     // Verificar si hay destinos
     if (this.mapHandler.destinations.length < 2) {
@@ -265,84 +313,43 @@ class TravelPrintApp {
     }
   
     try {
-      // Asegurarnos de tener acceso al token de Mapbox
-      const mapboxToken = this.mapHandler.mapboxToken;
-      if (!mapboxToken) {
-        console.error('No se pudo acceder al token de Mapbox');
-        alert('Error: No se pudo acceder al token de Mapbox');
-        return;
-      }
-      
       // Obtener configuración de la plantilla seleccionada
       const template = this.templates[this.state.templateStyle];
       
-      // Obtener coordenadas para la imagen estática
-      const coordinates = this.mapHandler.destinations.map(dest => dest.coordinates);
+      // Asegurarse de que el mapa esté correctamente renderizado antes de capturarlo
+      await this.ensureMapIsRendered();
       
-      // Calcular centro
-      const center = coordinates.reduce((acc, coord) => [acc[0] + coord[0], acc[1] + coord[1]], [0, 0])
-        .map(sum => sum / coordinates.length);
+      // Altura del mapa y del contenido de texto
+      const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
+      const textHeight = template.height - mapHeight;
       
-      // Determinar zoom basado en la distancia (simplificado)
-      let zoom = 5;
+      // 1. Primero capturamos el mapa interactivo existente
+      console.log('Capturando el mapa interactivo...');
+      const mapElement = document.getElementById('map');
       
-      // Color para la ruta (sin el #)
-      const color = this.state.lineColor.replace('#', '');
-      const styleId = this.state.mapStyle.split('/').pop();
+      // Crear elemento de canvas para la captura
+      const mapCanvas = await html2canvas(mapElement, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: true
+      });
       
-      // Enfoque con segmentos individuales y marcadores para puntos clave
-      const pathSegments = [];
-      const markers = [];
-
-      // Añadir marcadores para cada punto (limitado a 5 para evitar URL demasiado larga)
-      const maxMarkers = Math.min(5, coordinates.length);
-      for (let i = 0; i < maxMarkers; i++) {
-        const index = Math.floor(i * (coordinates.length - 1) / (maxMarkers - 1));
-        const label = String.fromCharCode(97 + i); // a, b, c, d, e...
-        markers.push(`pin-s-${label}+${color}(${coordinates[index].join(',')})`);
-      }
-
-      // Añadir segmentos de ruta entre cada par de puntos consecutivos
-      for (let i = 0; i < coordinates.length - 1; i++) {
-        const from = coordinates[i];
-        const to = coordinates[i + 1];
-        // Usar un ancho de línea mayor y un color más opaco para mayor visibilidad
-        pathSegments.push(`path-5+${color}-1(${from.join(',')};${to.join(',')})`);
-      }
-
-      // Combinar todo en la URL, poniendo los segmentos ANTES de los marcadores
-      // Esto puede ayudar con la visualización en algunos casos
-      const maxElements = 8; // Limitar elementos para evitar URL demasiado larga
-      const urlElements = [...pathSegments.slice(0, maxElements - markers.length), ...markers];
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/${urlElements.join(',')}/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
+      // Crear una URL de datos para la imagen del mapa
+      const mapImageUrl = mapCanvas.toDataURL('image/png');
+      console.log('Mapa capturado exitosamente');
       
-      console.log("URL de la imagen estática (segmentada):", staticMapUrl);
-      
-      // Crear un div temporal para la estampita
+      // 2. Crear un div temporal para la estampita completa
       const tempDiv = document.createElement('div');
       tempDiv.className = `relative ${template.borderStyle} overflow-hidden`;
       tempDiv.style.width = `${template.width}px`;
       tempDiv.style.height = `${template.height}px`;
       
-      // Altura del contenido de texto
-      const mapHeight = Math.round(template.height * parseFloat(template.mapHeight) / 100);
-      const textHeight = template.height - mapHeight;
-      
-      // Preparar un div de "fallback" por si falla la imagen
-      const fallbackMapDiv = `
-        <div style="width:100%; height:${mapHeight}px; background-color:#f0f0f0; display:flex; justify-content:center; align-items:center; text-align:center;">
-          <p>Mapa de ruta: ${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
-        </div>
-      `;
-      
-      // Crear estructura de la estampita, con manejo de error para la imagen
+      // Crear estructura de la estampita con la imagen del mapa
       tempDiv.innerHTML = `
-        <img src="${staticMapUrl}" alt="Mapa de ruta" 
-             style="width:100%; height:${mapHeight}px; object-fit:cover;"
-             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-        <div style="display:none; width:100%; height:${mapHeight}px; background-color:#f0f0f0; display:flex; justify-content:center; align-items:center; text-align:center;">
-          <p>Mapa de ruta: ${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
-        </div>
+        <img src="${mapImageUrl}" alt="Mapa de ruta" 
+             style="width:100%; height:${mapHeight}px; object-fit:cover;">
         <div class="p-4 bg-white" style="height:${textHeight}px;">
           <h3 class="text-xl font-bold text-center ${template.fontClass}">${this.state.title}</h3>
           <p class="text-gray-600 text-center ${template.fontClass}">${this.mapHandler.destinations.map(d => d.name).join(' → ')}</p>
@@ -355,10 +362,11 @@ class TravelPrintApp {
       // Agregar temporalmente al DOM para poder capturarlo
       document.body.appendChild(tempDiv);
       
-      // Esperar un momento para asegurar que todo se renderice
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 3. Esperar un momento para asegurar que todo se renderice
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Capturar como imagen
+      // 4. Capturar la estampita completa
+      console.log('Generando imagen final...');
       const canvas = await html2canvas(tempDiv, {
         useCORS: true,
         allowTaint: true,
@@ -377,6 +385,7 @@ class TravelPrintApp {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      console.log('Estampita generada y descargada correctamente');
     } catch (error) {
       console.error('Error al descargar la estampita:', error);
       alert('Hubo un error al generar la imagen. Inténtalo de nuevo.');
