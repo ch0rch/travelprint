@@ -290,15 +290,31 @@ class TravelPrintApp {
       const color = this.state.lineColor.replace('#', '');
       const styleId = this.state.mapStyle.split('/').pop();
       
-      // Usar una URL con formato mejorado para asegurar que se muestre la ruta
-      const startPoint = coordinates[0].join(',');
-      const endPoint = coordinates[coordinates.length - 1].join(',');
-      const coordsStr = coordinates.map(coord => coord.join(',')).join(';');
+      // Enfoque con segmentos individuales y marcadores para puntos clave
+      const pathSegments = [];
+      const markers = [];
 
-      // Construir la URL con marcadores de inicio/fin y ruta
-      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/pin-s-a+${color}(${startPoint}),pin-s-b+${color}(${endPoint}),path-5+${color}-0.8(${coordsStr})/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
+      // Añadir marcadores para cada punto (limitado a 5 para evitar URL demasiado larga)
+      const maxMarkers = Math.min(5, coordinates.length);
+      for (let i = 0; i < maxMarkers; i++) {
+        const index = Math.floor(i * (coordinates.length - 1) / (maxMarkers - 1));
+        const label = String.fromCharCode(97 + i); // a, b, c, d, e...
+        markers.push(`pin-s-${label}+${color}(${coordinates[index].join(',')})`);
+      }
+
+      // Añadir segmentos de ruta entre cada par de puntos consecutivos
+      for (let i = 0; i < coordinates.length - 1; i++) {
+        const from = coordinates[i];
+        const to = coordinates[i + 1];
+        pathSegments.push(`path-3+${color}-0.9(${from.join(',')};${to.join(',')})`);
+      }
+
+      // Combinar todo en la URL (limitando el número de elementos para evitar URL demasiado larga)
+      const maxElements = 8; // Límite para evitar URL demasiado larga
+      const urlElements = [...markers, ...pathSegments.slice(0, maxElements - markers.length)];
+      const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${styleId}/static/${urlElements.join(',')}/${center.join(',')},${zoom}/500x400?access_token=${mapboxToken}`;
       
-      console.log("URL de la imagen estática (muy simplificada):", staticMapUrl);
+      console.log("URL de la imagen estática (segmentada):", staticMapUrl);
       
       // Crear un div temporal para la estampita
       const tempDiv = document.createElement('div');
